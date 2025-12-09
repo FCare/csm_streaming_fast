@@ -143,6 +143,7 @@ class Model(
         """
         dtype = next(self.parameters()).dtype
         b, s, _ = tokens.size()
+        device = tokens.device
 
         assert self.backbone.caches_are_enabled(), "backbone caches are not enabled"
         curr_backbone_mask = _index_causal_mask(self.backbone_causal_mask, input_pos)
@@ -156,23 +157,28 @@ class Model(
         c0_sample = sample_topk(c0_logits, topk, temperature)
         c0_embed = self._embed_audio(0, c0_sample)
 
+        curr_sample = torch.empty(b, self.config.audio_num_codebooks, device=device, dtype=torch.long)
+        curr_sample[:, 0] = c0_sample.squeeze(-1)
         curr_h = torch.cat([last_h.unsqueeze(1), c0_embed], dim=1)
-        curr_sample = c0_sample.clone()
-        curr_pos = torch.arange(0, curr_h.size(1), device=curr_h.device).unsqueeze(0).repeat(curr_h.size(0), 1)
-
+        
         # Decoder caches must be reset every frame.
         self.decoder.reset_caches()
+        
+        curr_pos = torch.arange(0, curr_h.size(1), device=device).unsqueeze(0).expand(b, -1)
+        
         for i in range(1, self.config.audio_num_codebooks):
             curr_decoder_mask = _index_causal_mask(self.decoder_causal_mask, curr_pos)
             decoder_h = self.decoder(self.projection(curr_h), input_pos=curr_pos, mask=curr_decoder_mask).to(
                 dtype=dtype
             )
+            
             ci_logits = torch.mm(decoder_h[:, -1, :], self.audio_head[i - 1])
             ci_sample = sample_topk(ci_logits, topk, temperature)
             ci_embed = self._embed_audio(i, ci_sample)
 
+            curr_sample[:, i] = ci_sample.squeeze(-1)
+            
             curr_h = ci_embed
-            curr_sample = torch.cat([curr_sample, ci_sample], dim=1)
             curr_pos = curr_pos[:, -1:] + 1
 
         return curr_sample
