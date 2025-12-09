@@ -187,10 +187,10 @@ class Generator:
 
         tokens, tokens_mask = [], []
 
-        initial_batch_size = 20
-        normal_batch_size = 20  
-        initial_buffer_size = 20
-        normal_buffer_size = 20
+        initial_batch_size = 1
+        normal_batch_size = 1  
+        initial_buffer_size = 1
+        normal_buffer_size = 1
         
         batch_size = initial_batch_size
         buffer_size = initial_buffer_size
