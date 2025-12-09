@@ -243,7 +243,13 @@ class Generator:
                 batch_samples = []
 
                 cuda_available = torch.cuda.is_available() and hasattr(torch, "cuda") and hasattr(torch.cuda, "is_available")
-                dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
+                # Utiliser variable d'environnement pour forcer le type de données
+                force_float16 = os.environ.get("FORCE_FLOAT16", "false").lower() == "true"
+                
+                if force_float16:
+                    dtype = torch.float16
+                else:
+                    dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
                 for _ in range(batch_size_actual):
                     with torch.autocast(device_type=self.device.type, dtype=dtype):
                         sample = self._model.generate_frame(curr_tokens, curr_tokens_mask, curr_pos, temperature, topk)
@@ -578,7 +584,13 @@ def load_csm_1b_local(model_path: str, device: str = "cuda", audio_num_codebooks
     model = Model.from_pretrained(model_path)
     model.eval()
 
-    dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
+    # Utiliser variable d'environnement pour forcer le type de données
+    force_float16 = os.environ.get("FORCE_FLOAT16", "false").lower() == "true"
+    
+    if force_float16:
+        dtype = torch.float16
+    else:
+        dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
 
     model.backbone = torch.compile(model.backbone,mode='reduce-overhead', fullgraph=True, backend='inductor')
     model.decoder = torch.compile(model.decoder,mode='reduce-overhead', fullgraph=True, backend='inductor')
@@ -795,7 +807,14 @@ def load_csm_1b(device: str = "cuda") -> Generator:
     
     model = Model.from_pretrained("sesame/csm-1b")
     
-    dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
+    # Utiliser variable d'environnement pour forcer le type de données
+    force_float16 = os.environ.get("FORCE_FLOAT16", "false").lower() == "true"
+    
+    if force_float16:
+        dtype = torch.float16
+        logger.info("Forcing float16 via FORCE_FLOAT16 environment variable")
+    else:
+        dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
     model.backbone = torch.compile(model.backbone,mode='reduce-overhead', fullgraph=True, backend='inductor')
     model.decoder = torch.compile(model.decoder,mode='reduce-overhead', fullgraph=True, backend='inductor')
 
