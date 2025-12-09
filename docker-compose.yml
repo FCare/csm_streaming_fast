@@ -1,0 +1,38 @@
+services:
+  csm-streaming:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: csm-streaming
+    ports:
+      - "8000:8000"
+    volumes:
+      # Cache Hugging Face pour éviter de retélécharger les modèles
+      - huggingface_cache:/home/csm/.cache/huggingface
+      # Scripts d'inférence (optionnel)
+      - ./inference:/home/csm/inference
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - HF_HOME=/home/csm/.cache/huggingface
+      - TORCH_HOME=/home/csm/.cache/torch
+    env_file:
+      - .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s  # Plus de temps pour charger le modèle
+
+volumes:
+  huggingface_cache:
+    driver: local
